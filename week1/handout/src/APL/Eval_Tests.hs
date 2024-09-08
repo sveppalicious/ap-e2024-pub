@@ -1,9 +1,9 @@
 module APL.Eval_Tests (tests) where
 
-import APL.AST ()
-import APL.Eval ()
+import APL.AST (Exp (..))
+import APL.Eval (Val (..), eval)
 import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.HUnit ()
+import Test.Tasty.HUnit (testCase, (@?=))
 
 tests :: TestTree
 tests =
