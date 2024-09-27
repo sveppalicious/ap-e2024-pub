@@ -5,9 +5,7 @@ import APL.Eval (eval)
 import APL.InterpIO (runEvalIO)
 import APL.InterpPure (runEval)
 import APL.Monad
-import GHC.IO.Handle (hDuplicate, hDuplicateTo)
-import System.IO (hClose, hFlush, hGetContents, hPutStrLn, stdin, stdout)
-import System.Process (createPipe)
+import APL.Util (captureIO)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
 
@@ -75,36 +73,23 @@ ioTests =
   testGroup
     "IO interpreter"
     [ testCase "print" $ do
+        let s1 = "Lalalalala"
+            s2 = "Weeeeeeeee"
         (out, res) <-
-          testIO [] $
-            evalIO' $
-              Print "This is also 1" $
-                Print "This is 1" $
-                  CstInt 1
-        (out, res) @?= (["This is 1: 1", "This is also 1: 1"], Right $ ValInt 1)
+          captureIO [] $
+            runEvalIO $ do
+              evalPrint s1
+              evalPrint s2
+        (out, res) @?= ([s1, s2], Right ())
+        -- NOTE: This test will give a runtime error unless you replace the
+        -- version of `eval` in `APL.Eval` with a complete version that supports
+        -- `Print`-expressions. Uncomment at your own risk.
+        -- testCase "print 2" $ do
+        --    (out, res) <-
+        --      captureIO [] $
+        --        evalIO' $
+        --          Print "This is also 1" $
+        --            Print "This is 1" $
+        --              CstInt 1
+        --    (out, res) @?= (["This is 1: 1", "This is also 1: 1"], Right $ ValInt 1)
     ]
-
--- DO NOT MODIFY
-testIO :: [String] -> IO a -> IO ([String], a)
-testIO inputs m = do
-  stdin' <- hDuplicate stdin
-  stdout' <- hDuplicate stdout
-
-  (inR, inW) <- createPipe
-  (outR, outW) <- createPipe
-
-  inR `hDuplicateTo` stdin
-  outW `hDuplicateTo` stdout
-
-  mapM_ (hPutStrLn inW) inputs
-  hFlush inW
-
-  res <- m
-
-  stdin' `hDuplicateTo` stdin
-  stdout' `hDuplicateTo` stdout
-
-  output <- hGetContents outR -- hGetContents closes outR
-  mapM_ hClose [stdin', stdout', inR, inW, outW]
-
-  pure (lines output, res)

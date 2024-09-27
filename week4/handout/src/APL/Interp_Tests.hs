@@ -4,10 +4,8 @@ import APL.AST (Exp (..))
 import APL.Eval (eval)
 import APL.InterpIO (runEvalIO)
 import APL.InterpPure (runEval)
-import APL.Monad (Error, Val (..))
-import GHC.IO.Handle (hDuplicate, hDuplicateTo)
-import System.IO (hClose, hFlush, hGetContents, hPutStrLn, stdin, stdout)
-import System.Process (createPipe)
+import APL.Monad
+import APL.Util (captureIO)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
 
@@ -31,28 +29,3 @@ ioTests =
   testGroup
     "IO interpreter"
     []
-
--- DO NOT MODIFY
-testIO :: [String] -> IO a -> IO ([String], a)
-testIO inputs m = do
-  stdin' <- hDuplicate stdin
-  stdout' <- hDuplicate stdout
-
-  (inR, inW) <- createPipe
-  (outR, outW) <- createPipe
-
-  inR `hDuplicateTo` stdin
-  outW `hDuplicateTo` stdout
-
-  mapM_ (hPutStrLn inW) inputs
-  hFlush inW
-
-  res <- m
-
-  stdin' `hDuplicateTo` stdin
-  stdout' `hDuplicateTo` stdout
-
-  output <- hGetContents outR -- hGetContents closes outR
-  mapM_ hClose [stdin', stdout', inR, inW, outW]
-
-  pure (lines output, res)

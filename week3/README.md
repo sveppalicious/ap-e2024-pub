@@ -1,8 +1,4 @@
-# Week 4 - Monadic Parsing
-
-## Slides and Material
-
-TBA
+# Week 3 - Monadic Parsing
 
 ## Suggested Reading
 
@@ -56,7 +52,7 @@ capital letter.
 For the Haskell code we follow the convention discussed in the course
 notes where *lexer functions* are named with a leading `l`, and are
 the only functions that are allowed to directly manipulate whitespace.
-Parser functions are named with a leading `l`, and must not directly
+Parser functions are named with a leading `p`, and must not directly
 manipulate whitespace (such as by using the `spaces` parser).
 
 Implement a lexer function
@@ -74,7 +70,7 @@ To start, let us not worry about whitespace or similar complexities.
 
 You can use the function `read` to convert a string containing decimal
 numbers to a Haskell `Integer`. Note that `read` will blow up your
-program if the input is malformed, so be carefu.
+program if the input is malformed, so be careful.
 
 Use `parseTest` to easily test your parser in the REPL:
 
@@ -106,7 +102,7 @@ lInteger = read <$> some (satisfy isDigit)
 
 ### Handling whitespace
 
-`lInteger` doese not properly handle whitespace, which can be seen by
+`lInteger` does not properly handle whitespace, which can be seen by
 trying to parse an integer followed by end-of-input (`eof`), when the
 string has trailing whitespace:
 
@@ -132,6 +128,9 @@ lexeme :: Parser a -> Parser a
 that applies a given parser, consumes trailing whitespace, then
 returns the value of that parser.
 
+#### Hints
+Use the `<*` operator.
+
 <details>
 <summary>Open this to see the answer</summary>
 
@@ -143,7 +142,7 @@ lexeme p = p <* space
 </details>
 
 Now use `lexeme` to modify `lInteger` to consume trailing whitespace
-such that the `parseTest` example above.
+such as in the `parseTest` example above.
 
 <details>
 <summary>Open this to see the answer</summary>
@@ -162,7 +161,7 @@ problem later, but we might as well fix it immediately to establish
 good habits. To illustrate the example, suppose that we also have a
 parser for parsing identifiers like `xyz`. (We will write such a
 parser in a bit, but for now it will live only in our imagination). If
-then write a combined parser that parses *first* an integer, then a
+we then write a combined parser that parses *first* an integer, then an
 identifier, then a string such as `123xyz` would be parsed into an
 integer and a variable. This *may* be what we want, but it is not in
 accordance with normal conventions regarding syntax, where tokens must
@@ -290,7 +289,7 @@ pExp :: Parser Exp
 pExp =
   choice
     [ CstInt <$> lInteger,
-      Var <$> lVName,
+      Var <$> lVName
     ]
 ```
 
@@ -304,28 +303,28 @@ Booleans follow this grammar in APL:
 bool ::= "true" | "false";
 ```
 
-Implement a lexer function
+Implement a parser function
 
 ```Haskell
-lBool :: Parser Bool
+pBool :: Parser Bool
 ```
 
-that parses boleans. As with numbers, it is important that inputs such
+that parses booleans. As with numbers, it is important that inputs such
 as `truee` are not parsed as `true` followed by another character.
 Also add a case for `CstBool` to `pExp`.
 
 #### Examples
 
 ```
-> parseTest lBool "true"
+> parseTest pBool "true"
 True
-> parseTest lBool "truee"
+> parseTest pBool "truee"
 1:5:
   |
 1 | truee
   |     ^
 unexpected 'e'
-> parseTest lBool "true e"
+> parseTest pBool "true e"
 True
 ```
 
@@ -337,7 +336,7 @@ Consider defining a function
 lKeyword :: String -> Parser ()
 ```
 
-that parse a given alphanumeric string, and uses `notFollowedBy` to
+that parses a given alphanumeric string, and uses `notFollowedBy` to
 require that it is not followed by another alphanumeric character.
 
 #### Solution
@@ -349,20 +348,19 @@ require that it is not followed by another alphanumeric character.
 lKeyword :: String -> Parser ()
 lKeyword s = lexeme $ void $ try $ chunk s <* notFollowedBy (satisfy isAlphaNum)
 
-lBool :: Parser Bool
-lBool =
-  try $ lexeme $
-    choice
-      [ const True <$> lKeyword "true",
-        const False <$> lKeyword "false"
-      ]
+pBool :: Parser Bool
+pBool =
+  choice $
+    [ const True <$> lKeyword "true",
+      const False <$> lKeyword "false"
+    ]
 
 pExp :: Parser Exp
 pExp =
   choice
     [ CstInt <$> lInteger,
-      CstBool <$> lBool,
-      Var <$> lVName,
+      CstBool <$> pBool,
+      Var <$> lVName
     ]
 ```
 
@@ -453,7 +451,7 @@ Atom ::= var
        | bool
        | "(" Exp ")"
 
-Exp ::=
+Exp ::= Atom
       | Exp "+" Exp
       | Exp "-" Exp
       | Exp "*" Exp
@@ -475,12 +473,12 @@ Atom ::= var
        | "(" Exp ")"
 
 Exp0' ::=            (* empty *)
-        | "+" Exp1 Exp0'
-        | "-" Exp1 Exp0'
-        | "*" Exp1 Exp0'
-        | "/" Exp1 Exp0'
+        | "+" Atom Exp0'
+        | "-" Atom Exp0'
+        | "*" Atom Exp0'
+        | "/" Atom Exp0'
 
-Exp0 ::= Exp1 Exp0'
+Exp0 ::= Atom Exp0'
 
 Exp  ::= Exp0
 ```
@@ -511,7 +509,7 @@ pAtom =
     ]
 
 pExp0 :: Parser Exp
-pExp0 = pExp1 >>= chain
+pExp0 = pAtom >>= chain
   where
     chain x =
       choice
@@ -582,10 +580,10 @@ Atom ::= var
        | "(" Exp ")"
 
 Exp1' ::=            (* empty *)
-        | "*" Exp2 Exp1'
-        | "/" Exp2 Exp1'
+        | "*" Atom Exp1'
+        | "/" Atom Exp1'
 
-Exp1 ::= Exp2 Exp1'
+Exp1 ::= Atom Exp1'
 
 Exp0' ::=            (* empty *)
         | "+" Exp1 Exp0'
@@ -670,7 +668,8 @@ Atom ::= var
 
 LExp ::= "if" Exp "then" Exp "else" Exp
 
-Exp ::= LExp
+Exp ::= Atom
+      | LExp
       | Exp "+" Exp
       | Exp "-" Exp
       | Exp "*" Exp
